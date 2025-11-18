@@ -13,6 +13,7 @@ import {
   checkWinCondition,
   calculateScore,
   getLevelObjectives,
+  getLevelRequirements,
   LEVELS,
   type GameState,
   // updateGameGrid, // Removed as per updates
@@ -20,42 +21,103 @@ import {
 import { useGameControls } from "@/hooks/use-game-controls"
 import { RewardsPanel } from "@/components/rewards-panel"
 import { ACHIEVEMENTS, checkAchievements, SECRET_LEVELS } from "@/lib/rewards"
+import { isSurpriseLevel, getSurpriseLevel, getSurpriseRewards, SURPRISE_LEVELS, type SurpriseReward } from "@/lib/surprise-levels"
+import { RewardNotification } from "@/components/reward-notification"
+import { setGlobalAudioMuted, setGlobalAudioVolume } from "@/lib/audio"
+import { X } from "lucide-react"
 
 export default function PlayPage() {
+  // Cargar progreso desde localStorage
+  const loadProgress = () => {
+    if (typeof window === 'undefined') return {
+      completedLevels: new Set<number>(),
+      score: 0,
+      fragmentsCollected: 0,
+      secretLevelsUnlocked: [] as number[],
+      currentLevel: 1
+    }
+    
+    const saved = localStorage.getItem('nexus_progress')
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        return {
+          completedLevels: new Set<number>(data.completedLevels || []),
+          score: data.score || 0,
+          fragmentsCollected: data.fragmentsCollected || 0,
+          secretLevelsUnlocked: data.secretLevelsUnlocked || [],
+          currentLevel: data.currentLevel || 1
+        }
+      } catch {
+        return {
+          completedLevels: new Set<number>(),
+          score: 0,
+          fragmentsCollected: 0,
+          secretLevelsUnlocked: [] as number[],
+          currentLevel: 1
+        }
+      }
+    }
+    return {
+      completedLevels: new Set<number>(),
+      score: 0,
+      fragmentsCollected: 0,
+      secretLevelsUnlocked: [] as number[],
+      currentLevel: 1
+    }
+  }
+
+  const initialProgress = loadProgress()
+  
   const [showMap, setShowMap] = useState(true)
-  const [completedLevels, setCompletedLevels] = useState<Set<number>>(new Set())
-  const [currentLevel, setCurrentLevel] = useState(1)
-  const [gameState, setGameState] = useState<GameState>(() => createLevel(1))
+  const [completedLevels, setCompletedLevels] = useState<Set<number>>(initialProgress.completedLevels)
+  const [currentLevel, setCurrentLevel] = useState(initialProgress.currentLevel)
+  const [gameState, setGameState] = useState<GameState>(() => createLevel(initialProgress.currentLevel))
   const [time, setTime] = useState(0)
-  const [score, setScore] = useState(0)
+  const [score, setScore] = useState(initialProgress.score)
   const [isPaused, setIsPaused] = useState(false)
   const [showLevelComplete, setShowLevelComplete] = useState(false)
   const [levelScore, setLevelScore] = useState(0)
   const [doorsUnlocked, setDoorsUnlocked] = useState(0)
   const [warningMessage, setWarningMessage] = useState<string>("")
-  const [fragmentsCollected, setFragmentsCollected] = useState(0) // Fragmentos de Conocimiento
+  const [fragmentsCollected, setFragmentsCollected] = useState(initialProgress.fragmentsCollected)
   const [achievements, setAchievements] = useState(ACHIEVEMENTS)
-  const [secretLevelsUnlocked, setSecretLevelsUnlocked] = useState<number[]>([])
+  const [secretLevelsUnlocked, setSecretLevelsUnlocked] = useState<number[]>(initialProgress.secretLevelsUnlocked)
   const [muted, setMuted] = useState(false)
-  const [volume, setVolume] = useState(0.5) // Volumen medio por defecto (0.0 a 1.0)
+  const [volume, setVolume] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nexus_volume')
+      return saved ? parseFloat(saved) : 0.5
+    }
+    return 0.5
+  })
+  const [newReward, setNewReward] = useState<{ reward: SurpriseReward; levelNumber: number } | null>(null)
 
-  // Audio de fondo
   useEffect(() => {
-    if (showMap) return
-    
-    const audio = new Audio('/musica juego.mp3')
-    audio.loop = true
-    audio.volume = muted ? 0 : volume
-    
-    if (!muted) {
-      audio.play().catch(() => {})
-    }
+    setGlobalAudioMuted(muted)
+  }, [muted])
 
-    return () => {
-      audio.pause()
-      audio.src = ''
+  useEffect(() => {
+    // Cargar volumen inicial desde localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nexus_volume')
+      if (saved) {
+        const savedVolume = parseFloat(saved)
+        setVolume(savedVolume)
+        setGlobalAudioVolume(savedVolume)
+      } else {
+        setGlobalAudioVolume(volume)
+        localStorage.setItem('nexus_volume', volume.toString())
+      }
     }
-  }, [muted, showMap, volume])
+  }, [])
+
+  useEffect(() => {
+    setGlobalAudioVolume(volume)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_volume', volume.toString())
+    }
+  }, [volume])
 
   // Sonido de movimiento
   const playMoveSound = useCallback(() => {
@@ -106,16 +168,49 @@ export default function PlayPage() {
     }
   }, [fragmentsCollected])
 
+  // Guardar progreso en localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const progress = {
+        completedLevels: Array.from(completedLevels),
+        score,
+        fragmentsCollected,
+        secretLevelsUnlocked,
+        currentLevel
+      }
+      localStorage.setItem('nexus_progress', JSON.stringify(progress))
+    }
+  }, [completedLevels, score, fragmentsCollected, secretLevelsUnlocked, currentLevel])
+
   // Validación de seguridad: si isComplete es true, significa que ya pasó la validación en handleMove
   useEffect(() => {
-    if (gameState.isComplete && checkWinCondition(gameState, currentLevel)) {
-      const finalScore = calculateScore(gameState.moves, time, currentLevel)
-      setLevelScore(finalScore)
-      setScore((prev) => prev + finalScore)
-      setCompletedLevels((prev) => new Set([...prev, currentLevel]))
-      setShowLevelComplete(true)
+    if (gameState.isComplete && checkWinCondition(gameState, currentLevel, doorsUnlocked)) {
+      // Verificar si el nivel ya estaba completado antes de procesar
+      const wasCompleted = completedLevels.has(currentLevel)
+      
+      // Solo procesar si no estaba completado antes
+      if (!wasCompleted) {
+        const surpriseLevel = getSurpriseLevel(currentLevel)
+        const multiplier = surpriseLevel ? surpriseLevel.pointsMultiplier : 1
+        const finalScore = calculateScore(gameState.moves, time, currentLevel, multiplier)
+        setLevelScore(finalScore)
+        setScore((prev) => prev + finalScore)
+        
+        // Agregar el nivel a los completados
+        setCompletedLevels((prev) => new Set([...prev, currentLevel]))
+        
+        // Si es un nivel sorpresa, mostrar notificación
+        if (surpriseLevel) {
+          setNewReward({
+            reward: surpriseLevel.reward,
+            levelNumber: currentLevel
+          })
+        }
+        
+        setShowLevelComplete(true)
+      }
     }
-  }, [gameState.isComplete, gameState, currentLevel, time])
+  }, [gameState.isComplete, gameState, currentLevel, time, doorsUnlocked])
 
   // Clear warning after 4 seconds
   useEffect(() => {
@@ -162,6 +257,7 @@ export default function PlayPage() {
             playerPos: { x: newX, y: newY },
             moves: gameState.moves + 1,
             switchesActive: newSwitchesActive,
+            requirements: gameState.requirements,
           })
           playMoveSound()
         }
@@ -169,7 +265,7 @@ export default function PlayPage() {
       }
 
       if (targetCell.type === "door" && !targetCell.active) {
-        if (gameState.keysCollected <= doorsUnlocked) {
+        if (gameState.keysCollected === 0) {
           return
         }
       }
@@ -196,27 +292,28 @@ export default function PlayPage() {
           playCollectSound()
         }
 
-        if (targetCell.type === "door" && !targetCell.active && gameState.keysCollected > doorsUnlocked) {
+        if (targetCell.type === "door" && !targetCell.active && newKeysCollected > 0) {
           newGrid[newY][newX] = { ...targetCell, active: true }
+          newKeysCollected-- // Consumir una llave al abrir la puerta
           newDoorsUnlocked++
         }
 
         // Validar objetivos ANTES de permitir completar el nivel
         if (targetCell.type === "goal") {
-          const levelConfig = LEVELS.find((l) => l.number === currentLevel)
-          const requiredKeys = levelConfig?.totalKeys || 0
-          const requiredSwitches = levelConfig?.requiredSwitches || 0
+          const requiredKeys = gameState.requirements.totalKeys || 0
+          const requiredSwitches = gameState.requirements.totalSwitches || 0
           
-          const hasEnoughKeys = newKeysCollected >= requiredKeys
+          // El objetivo es abrir todas las puertas necesarias (usando las llaves), no tener las llaves al final
+          const hasOpenedAllDoors = requiredKeys === 0 || newDoorsUnlocked >= requiredKeys
           const hasEnoughSwitches = gameState.switchesActive.size >= requiredSwitches
           
           // Si no se cumplen los objetivos, mostrar error y NO completar
-          if (!hasEnoughKeys || !hasEnoughSwitches) {
-            const missingKeys = Math.max(0, requiredKeys - newKeysCollected)
+          if (!hasOpenedAllDoors || !hasEnoughSwitches) {
+            const missingDoors = Math.max(0, requiredKeys - newDoorsUnlocked)
             const missingSwitches = Math.max(0, requiredSwitches - gameState.switchesActive.size)
             
             let errorMsg = "❌ OBJETIVOS NO COMPLETADOS - NO PUEDES AVANZAR\n"
-            if (missingKeys > 0) errorMsg += `Faltan ${missingKeys} LLAVE${missingKeys > 1 ? 'S' : ''}\n`
+            if (missingDoors > 0) errorMsg += `Faltan abrir ${missingDoors} PUERTA${missingDoors > 1 ? 'S' : ''} (usa las llaves)\n`
             if (missingSwitches > 0) errorMsg += `Faltan ${missingSwitches} INTERRUPTOR${missingSwitches > 1 ? 'ES' : ''}`
             
             setWarningMessage(errorMsg)
@@ -228,8 +325,24 @@ export default function PlayPage() {
           isComplete = true
         }
 
-        newGrid[gameState.playerPos.y][gameState.playerPos.x] = { type: "empty" }
-        newGrid[newY][newX] = { type: "player" }
+        // Guardar qué había en la celda anterior antes de mover al jugador
+        const previousCell = gameState.grid[gameState.playerPos.y][gameState.playerPos.x]
+        
+        // Si el jugador estaba sobre un switch, restaurarlo
+        if (previousCell.type === "player" && previousCell.underlay === "switch" && previousCell.switchId) {
+          newGrid[gameState.playerPos.y][gameState.playerPos.x] = { type: "switch", id: previousCell.switchId }
+        } else if (previousCell.type === "switch") {
+          newGrid[gameState.playerPos.y][gameState.playerPos.x] = { type: "switch", id: previousCell.id }
+        } else {
+          newGrid[gameState.playerPos.y][gameState.playerPos.x] = { type: "empty" }
+        }
+        
+        // Si el jugador se mueve a un switch, mantener el switch como underlay
+        if (targetCell.type === "switch") {
+          newGrid[newY][newX] = { type: "player", underlay: "switch", switchId: targetCell.id }
+        } else {
+          newGrid[newY][newX] = { type: "player" }
+        }
         playMoveSound()
 
         setGameState({
@@ -239,6 +352,7 @@ export default function PlayPage() {
           switchesActive: gameState.switchesActive,
           moves: gameState.moves + 1,
           isComplete,
+          requirements: gameState.requirements,
         })
         
         setDoorsUnlocked(newDoorsUnlocked)
@@ -265,6 +379,22 @@ export default function PlayPage() {
     setShowLevelComplete(false)
   }, [])
 
+  const handleResetAll = useCallback(() => {
+    // Resetear todo el progreso
+    localStorage.removeItem('nexus_progress')
+    setCompletedLevels(new Set<number>())
+    setScore(0)
+    setFragmentsCollected(0)
+    setSecretLevelsUnlocked([])
+    setCurrentLevel(1)
+    setGameState(createLevel(1))
+    setTime(0)
+    setShowLevelComplete(false)
+    setDoorsUnlocked(0)
+    setWarningMessage("")
+    setShowMap(true)
+  }, [])
+
   const handleSelectLevel = useCallback((level: number) => {
     setCurrentLevel(level)
     setGameState(createLevel(level))
@@ -276,6 +406,7 @@ export default function PlayPage() {
     // Fragmentos se mantienen entre niveles
   }, [])
 
+
   useGameControls({
     onMove: handleMove,
     onReset: handleReset,
@@ -284,18 +415,32 @@ export default function PlayPage() {
   })
 
   if (showMap) {
-    return <LevelMap onSelectLevel={handleSelectLevel} completedLevels={completedLevels} currentLevel={currentLevel} />
+    return (
+      <LevelMap
+        onSelectLevel={handleSelectLevel}
+        completedLevels={completedLevels}
+        currentLevel={currentLevel}
+        secretLevelsUnlocked={secretLevelsUnlocked}
+        onResetAll={handleResetAll}
+      />
+    )
   }
 
   const levelConfig = LEVELS.find((l) => l.number === currentLevel)
-  const requiredSwitches = levelConfig?.requiredSwitches || 0
-  const totalKeys = levelConfig?.totalKeys || 0
+  const requirements =
+    gameState.requirements ??
+    getLevelRequirements(currentLevel) ?? {
+      totalKeys: levelConfig?.totalKeys || 0,
+      totalSwitches: levelConfig?.requiredSwitches || 0,
+    }
+  const requiredSwitches = requirements.totalSwitches || 0
+  const totalKeys = requirements.totalKeys || 0
   const switchProgress = requiredSwitches > 0 ? (gameState.switchesActive.size / requiredSwitches) * 50 : 0
   const keyProgress = totalKeys > 0 ? (gameState.keysCollected / totalKeys) * 25 : 0
   const goalProgress = gameState.isComplete ? 25 : 0
   const progress = Math.min(100, switchProgress + keyProgress + goalProgress)
 
-  const objectives = getLevelObjectives(currentLevel)
+  const objectives = getLevelObjectives(currentLevel, requirements)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0f1a] via-[#0f1729] to-[#0a0f1a] flex flex-col p-4" style={{ overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -338,8 +483,8 @@ export default function PlayPage() {
       <div className="flex-1 flex items-start justify-center gap-6 mt-24 mb-8 px-4 overflow-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="hidden xl:flex flex-col gap-3 w-64 flex-shrink-0">
           <div className="bg-slate-900/40 backdrop-blur-xl border border-cyan-500/20 rounded-lg p-5">
-            <h3 className="text-cyan-400/80 font-light text-sm mb-4 uppercase tracking-wider">Objetivos</h3>
-            <div className="space-y-3">
+            <h3 className="text-cyan-400/80 font-light text-sm mb-4 uppercase tracking-wider text-center">Objetivos</h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-hide pr-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {objectives.map((objective, index) => (
                 <div 
                   key={index} 
@@ -347,16 +492,16 @@ export default function PlayPage() {
                     objective.startsWith('⚠️') 
                       ? 'bg-red-500/10 border border-red-500/30 text-red-300/90 rounded-lg p-3' 
                       : 'bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3'
-                  }`}
+                  } flex items-start gap-2`}
                 >
-                  <span className="text-sm font-light leading-relaxed">
+                  <span className="text-xs font-light leading-relaxed flex-1 text-left break-words whitespace-normal">
                     {objective.replace('⚠️ ', '')}
                   </span>
                 </div>
               ))}
             </div>
           </div>
-          
+
           <RewardsPanel 
             achievements={achievements}
             fragmentsCollected={fragmentsCollected}
@@ -375,13 +520,13 @@ export default function PlayPage() {
             grid={gameState.grid}
             cellSize={90}
             keysCollected={gameState.keysCollected}
-            switchesActive={new Set(Array.from(gameState.switchesActive).map(s => s.toString()))}
+            switchesActive={gameState.switchesActive}
           />
         </div>
 
         <div className="hidden lg:block xl:hidden w-64 flex-shrink-0">
           <div className="bg-slate-900/40 backdrop-blur-xl border border-cyan-500/20 rounded-lg p-5">
-            <h3 className="text-cyan-400/80 font-light text-sm mb-4 uppercase tracking-wider">Objetivos</h3>
+            <h3 className="text-cyan-400/80 font-light text-sm mb-4 uppercase tracking-wider text-center">Objetivos</h3>
             <div className="space-y-3">
               {objectives.map((objective, index) => (
                 <div 
@@ -390,9 +535,9 @@ export default function PlayPage() {
                     objective.startsWith('⚠️') 
                       ? 'bg-red-500/10 border border-red-500/30 text-red-300/90 rounded-lg p-3' 
                       : 'bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3'
-                  }`}
+                  } flex items-start gap-2`}
                 >
-                  <span className="text-sm font-light leading-relaxed">
+                  <span className="text-sm font-light leading-relaxed flex-1 text-left">
                     {objective.replace('⚠️ ', '')}
                   </span>
                 </div>
@@ -401,6 +546,13 @@ export default function PlayPage() {
           </div>
         </div>
       </div>
+
+      {newReward && (
+        <RewardNotification
+          reward={newReward.reward}
+          onClose={() => setNewReward(null)}
+        />
+      )}
 
       {showLevelComplete && (
         <LevelCompleteModal

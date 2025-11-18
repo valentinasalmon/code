@@ -3,25 +3,42 @@
 import { useRouter } from 'next/navigation'
 import { Play, BookOpen, Map, Volume2, VolumeX } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { setGlobalAudioMuted, setGlobalAudioVolume } from '@/lib/audio'
 
 export default function HomePage() {
   const router = useRouter()
   const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(0.5) // Valor inicial consistente para SSR
+  const [mounted, setMounted] = useState(false)
+
+  // Cargar valores desde localStorage solo después de montar (cliente)
+  useEffect(() => {
+    setMounted(true)
+    if (typeof window !== 'undefined') {
+      const savedVolume = localStorage.getItem('nexus_volume')
+      if (savedVolume) {
+        const parsedVolume = parseFloat(savedVolume)
+        setVolume(parsedVolume)
+        setGlobalAudioVolume(parsedVolume)
+      } else {
+        setGlobalAudioVolume(0.5)
+        localStorage.setItem('nexus_volume', '0.5')
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    const audio = new Audio('/ambient.mp3')
-    audio.loop = true
-    audio.volume = 0.3
-    
-    if (!muted) {
-      audio.play().catch(() => {})
-    }
-
-    return () => {
-      audio.pause()
-      audio.src = ''
-    }
+    setGlobalAudioMuted(muted)
   }, [muted])
+
+  useEffect(() => {
+    if (mounted) {
+      setGlobalAudioVolume(volume)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nexus_volume', volume.toString())
+      }
+    }
+  }, [volume, mounted])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0f1a] via-[#0f1729] to-[#0a0f1a] flex items-center justify-center p-8 relative overflow-hidden">
@@ -97,7 +114,23 @@ export default function HomePage() {
         </div>
 
         {/* Control de audio */}
-        <div className="absolute top-8 right-8 z-20">
+        <div className="absolute top-8 right-8 z-20 flex items-center gap-3 group">
+          {mounted && (
+            <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-sm border border-cyan-500/30 rounded-xl px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="w-20 h-1.5 bg-slate-700/50 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                style={{
+                  background: `linear-gradient(to right, rgb(6, 182, 212) 0%, rgb(6, 182, 212) ${volume * 100}%, rgba(51, 65, 85, 0.5) ${volume * 100}%, rgba(51, 65, 85, 0.5) 100%)`
+                }}
+              />
+            </div>
+          )}
           <button
             onClick={() => setMuted(!muted)}
             className="w-14 h-14 bg-slate-900/60 hover:bg-slate-800/80 border border-cyan-500/30 hover:border-cyan-400/60 rounded-xl flex items-center justify-center transition-all duration-200 backdrop-blur-sm shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"

@@ -2,13 +2,25 @@
 
 import { useEffect, useRef } from "react"
 
-export type CellType = "empty" | "wall" | "player" | "block" | "switch" | "door" | "key" | "goal" | "portal" | "fragment"
+export type CellType =
+  | "empty"
+  | "wall"
+  | "player"
+  | "block"
+  | "switch"
+  | "door"
+  | "key"
+  | "goal"
+  | "portal"
+  | "fragment"
 
 export interface Cell {
   type: CellType
   active?: boolean
   color?: string
   id?: string
+  underlay?: "switch"
+  switchId?: string
 }
 
 interface GameBoardProps {
@@ -20,6 +32,19 @@ interface GameBoardProps {
 
 export function GameBoard({ grid, cellSize = 60, keysCollected = 0, switchesActive = new Set() }: GameBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Encontrar posición del jugador
+  let playerX = 0
+  let playerY = 0
+  grid.forEach((row, y) => {
+    row.forEach((cell, x) => {
+      if (cell.type === "player") {
+        playerX = x
+        playerY = y
+      }
+    })
+  })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -41,6 +66,91 @@ export function GameBoard({ grid, cellSize = 60, keysCollected = 0, switchesActi
         ctx.strokeStyle = "rgba(50, 80, 150, 0.3)"
         ctx.lineWidth = 1
         ctx.strokeRect(posX, posY, cellSize, cellSize)
+
+        const renderSwitchBase = (isActive: boolean) => {
+          if (isActive) {
+            ctx.beginPath()
+            ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 2, 0, Math.PI * 2)
+            ctx.fillStyle = "rgba(168, 85, 247, 0.15)"
+            ctx.fill()
+
+            ctx.beginPath()
+            ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 2.5, 0, Math.PI * 2)
+            ctx.fillStyle = "rgba(168, 85, 247, 0.25)"
+            ctx.fill()
+          }
+
+          ctx.beginPath()
+          ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 2.8, 0, Math.PI * 2)
+          const platformGradient = ctx.createRadialGradient(
+            posX + cellSize / 2,
+            posY + cellSize / 2,
+            0,
+            posX + cellSize / 2,
+            posY + cellSize / 2,
+            cellSize / 2.8,
+          )
+
+          if (isActive) {
+            platformGradient.addColorStop(0, "rgba(168, 85, 247, 1)")
+            platformGradient.addColorStop(1, "rgba(139, 92, 246, 0.7)")
+          } else {
+            platformGradient.addColorStop(0, "rgba(139, 92, 246, 0.6)")
+            platformGradient.addColorStop(1, "rgba(124, 58, 237, 0.4)")
+          }
+
+          ctx.fillStyle = platformGradient
+          ctx.fill()
+          ctx.shadowBlur = isActive ? 35 : 12
+          ctx.shadowColor = isActive ? "rgba(168, 85, 247, 1)" : "rgba(139, 92, 246, 0.8)"
+          ctx.strokeStyle = isActive ? "rgba(168, 85, 247, 1)" : "rgba(139, 92, 246, 0.9)"
+          ctx.lineWidth = 5
+          ctx.stroke()
+          ctx.shadowBlur = 0
+
+          ctx.beginPath()
+          ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 5, 0, Math.PI * 2)
+          ctx.fillStyle = isActive ? "rgba(255, 255, 255, 0.95)" : "rgba(196, 181, 253, 0.8)"
+          ctx.fill()
+
+          if (isActive) {
+            ctx.beginPath()
+            ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 7, 0, Math.PI * 2)
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
+            ctx.fill()
+
+            for (let i = 0; i < 8; i++) {
+              const angle = (Math.PI / 4) * i
+              const startX = posX + cellSize / 2 + Math.cos(angle) * (cellSize / 5)
+              const startY = posY + cellSize / 2 + Math.sin(angle) * (cellSize / 5)
+              const endX = posX + cellSize / 2 + Math.cos(angle) * (cellSize / 2.8)
+              const endY = posY + cellSize / 2 + Math.sin(angle) * (cellSize / 2.8)
+
+              ctx.beginPath()
+              ctx.moveTo(startX, startY)
+              ctx.lineTo(endX, endY)
+              ctx.strokeStyle = "rgba(167, 139, 250, 0.9)"
+              ctx.lineWidth = 3
+              ctx.stroke()
+            }
+
+            for (let i = 0; i < 8; i++) {
+              const angle = (Math.PI / 4) * i
+              const circleX = posX + cellSize / 2 + Math.cos(angle) * (cellSize / 3.5)
+              const circleY = posY + cellSize / 2 + Math.sin(angle) * (cellSize / 3.5)
+
+              ctx.beginPath()
+              ctx.arc(circleX, circleY, cellSize / 20, 0, Math.PI * 2)
+              ctx.fillStyle = "rgba(167, 139, 250, 0.8)"
+              ctx.fill()
+            }
+          } else {
+            ctx.beginPath()
+            ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 9, 0, Math.PI * 2)
+            ctx.fillStyle = "rgba(60, 60, 80, 0.7)"
+            ctx.fill()
+          }
+        }
 
         switch (cell.type) {
           case "key": {
@@ -64,6 +174,10 @@ export function GameBoard({ grid, cellSize = 60, keysCollected = 0, switchesActi
           }
 
           case "block": {
+            if (cell.underlay === "switch") {
+              const isActive = cell.switchId ? switchesActive.has(cell.switchId) : false
+              renderSwitchBase(isActive)
+            }
             const blockGradient = ctx.createRadialGradient(
               posX + cellSize / 2,
               posY + cellSize / 2,
@@ -87,89 +201,17 @@ export function GameBoard({ grid, cellSize = 60, keysCollected = 0, switchesActi
 
           case "switch": {
             const switchActive = cell.active || (cell.id && switchesActive.has(cell.id))
+            renderSwitchBase(!!switchActive)
+            break
+          }
 
-            if (switchActive) {
-              ctx.beginPath()
-              ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 2, 0, Math.PI * 2)
-              ctx.fillStyle = "rgba(168, 85, 247, 0.15)"
-              ctx.fill()
-
-              ctx.beginPath()
-              ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 2.5, 0, Math.PI * 2)
-              ctx.fillStyle = "rgba(168, 85, 247, 0.25)"
-              ctx.fill()
+          case "player": {
+            // Si el jugador está sobre un switch, renderizar el switch primero
+            if (cell.underlay === "switch" && cell.switchId) {
+              const switchActive = switchesActive.has(cell.switchId)
+              renderSwitchBase(switchActive)
             }
-
-            ctx.beginPath()
-            ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 2.8, 0, Math.PI * 2)
-            const platformGradient = ctx.createRadialGradient(
-              posX + cellSize / 2,
-              posY + cellSize / 2,
-              0,
-              posX + cellSize / 2,
-              posY + cellSize / 2,
-              cellSize / 2.8,
-            )
-
-            if (switchActive) {
-              platformGradient.addColorStop(0, "rgba(168, 85, 247, 1)")
-              platformGradient.addColorStop(1, "rgba(139, 92, 246, 0.7)")
-            } else {
-              platformGradient.addColorStop(0, "rgba(139, 92, 246, 0.6)")
-              platformGradient.addColorStop(1, "rgba(124, 58, 237, 0.4)")
-            }
-
-            ctx.fillStyle = platformGradient
-            ctx.fill()
-            ctx.shadowBlur = switchActive ? 35 : 12
-            ctx.shadowColor = switchActive ? "rgba(168, 85, 247, 1)" : "rgba(139, 92, 246, 0.8)"
-            ctx.strokeStyle = switchActive ? "rgba(168, 85, 247, 1)" : "rgba(139, 92, 246, 0.9)"
-            ctx.lineWidth = 5
-            ctx.stroke()
-            ctx.shadowBlur = 0
-
-            ctx.beginPath()
-            ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 5, 0, Math.PI * 2)
-            ctx.fillStyle = switchActive ? "rgba(255, 255, 255, 0.95)" : "rgba(196, 181, 253, 0.8)"
-            ctx.fill()
-
-            if (switchActive) {
-              ctx.beginPath()
-              ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 7, 0, Math.PI * 2)
-              ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
-              ctx.fill()
-
-              for (let i = 0; i < 8; i++) {
-                const angle = (Math.PI / 4) * i
-                const startX = posX + cellSize / 2 + Math.cos(angle) * (cellSize / 5)
-                const startY = posY + cellSize / 2 + Math.sin(angle) * (cellSize / 5)
-                const endX = posX + cellSize / 2 + Math.cos(angle) * (cellSize / 2.8)
-                const endY = posY + cellSize / 2 + Math.sin(angle) * (cellSize / 2.8)
-
-                ctx.beginPath()
-                ctx.moveTo(startX, startY)
-                ctx.lineTo(endX, endY)
-                ctx.strokeStyle = "rgba(167, 139, 250, 0.9)"
-                ctx.lineWidth = 3
-                ctx.stroke()
-              }
-
-              for (let i = 0; i < 8; i++) {
-                const angle = (Math.PI / 4) * i
-                const circleX = posX + cellSize / 2 + Math.cos(angle) * (cellSize / 3.5)
-                const circleY = posY + cellSize / 2 + Math.sin(angle) * (cellSize / 3.5)
-
-                ctx.beginPath()
-                ctx.arc(circleX, circleY, cellSize / 20, 0, Math.PI * 2)
-                ctx.fillStyle = "rgba(167, 139, 250, 0.8)"
-                ctx.fill()
-              }
-            } else {
-              ctx.beginPath()
-              ctx.arc(posX + cellSize / 2, posY + cellSize / 2, cellSize / 9, 0, Math.PI * 2)
-              ctx.fillStyle = "rgba(60, 60, 80, 0.7)"
-              ctx.fill()
-            }
+            // El jugador se renderiza por separado en el JSX
             break
           }
 
@@ -329,37 +371,66 @@ export function GameBoard({ grid, cellSize = 60, keysCollected = 0, switchesActi
     })
   }, [grid, cellSize, switchesActive])
 
+  // Scroll automático para seguir al jugador
+  useEffect(() => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+    const playerPixelX = playerX * cellSize
+    const playerPixelY = playerY * cellSize
+    const containerWidth = container.clientWidth
+    const containerHeight = container.clientHeight
+    
+    // Centrar el jugador en la vista
+    const scrollX = Math.max(0, playerPixelX - containerWidth / 2 + cellSize / 2)
+    const scrollY = Math.max(0, playerPixelY - containerHeight / 2 + cellSize / 2)
+    
+    container.scrollTo({
+      left: scrollX,
+      top: scrollY,
+      behavior: 'smooth'
+    })
+  }, [playerX, playerY, cellSize])
+
   return (
-    <div className="relative animate-fade-in">
+    <div 
+      ref={containerRef}
+      className="relative animate-fade-in overflow-auto max-h-[80vh] max-w-[90vw] scrollbar-hide"
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+    >
       <canvas
         ref={canvasRef}
         width={grid[0]?.length * cellSize || 0}
         height={grid.length * cellSize || 0}
-        className="border-2 border-cyan-500/50 rounded-lg shadow-2xl"
+        className="border-2 border-cyan-500/50 rounded-lg shadow-2xl block"
       />
 
       {grid.map((row, y) =>
         row.map((cell, x) => {
           if (cell.type === "player") {
-            // Entidad luminosa abstracta - forma geométrica simple
             return (
               <div
                 key={`player-${x}-${y}`}
-                className="absolute transition-all duration-200 ease-out z-20"
+                className="absolute transition-all duration-200 ease-out z-[9999]"
                 style={{
                   left: x * cellSize + cellSize / 2,
                   top: y * cellSize + cellSize / 2,
                   transform: "translate(-50%, -50%)",
-                  width: cellSize * 0.85,
-                  height: cellSize * 0.85,
+                  width: cellSize,
+                  height: cellSize,
                 }}
               >
-                {/* Glow exterior más intenso */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-400/60 via-blue-400/50 to-cyan-500/60 blur-lg animate-pulse-glow"></div>
-                {/* Círculo principal más brillante */}
-                <div className="relative w-full h-full rounded-full bg-gradient-to-br from-cyan-300/90 via-blue-300/85 to-cyan-400/90 border-2 border-cyan-400/70 shadow-[0_0_40px_rgba(6,182,212,1.2)] animate-pulse"></div>
-                {/* Núcleo luminoso más visible */}
-                <div className="absolute inset-1/5 rounded-full bg-gradient-to-br from-cyan-200 to-blue-200 shadow-[0_0_25px_rgba(147,197,253,1.2)]"></div>
+                <div className="absolute inset-0 blur-3xl bg-cyan-400/40 animate-pulse" />
+                <div
+                  className="relative w-full h-full flex items-center justify-center drop-shadow-[0_0_25px_rgba(14,165,233,0.8)]"
+                  style={{ animation: "flameFloat 3s ease-in-out infinite" }}
+                >
+                  <img
+                    src="/avatar.png"
+                    alt="Entidad luminosa Nexus"
+                    draggable={false}
+                    className="w-full h-full object-contain pointer-events-none select-none"
+                  />
+                </div>
               </div>
             )
           }
@@ -444,6 +515,22 @@ export function GameBoard({ grid, cellSize = 60, keysCollected = 0, switchesActi
         }),
       )}
 
+      <style jsx>{`
+        @keyframes flameFloat {
+          0% {
+            transform: translateY(0) scale(1);
+          }
+          50% {
+            transform: translateY(-6px) scale(1.02);
+          }
+          100% {
+            transform: translateY(0) scale(1);
+          }
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   )
 }

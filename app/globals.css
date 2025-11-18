@@ -249,3 +249,22 @@
 .animate-rotate-glow {
   animation: rotate-glow 10s linear infinite;
 }
+
+@keyframes reward-pop {
+  0% {
+    transform: translate(-50%, -20px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, 0) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-reward-pop {
+  animation: reward-pop 0.5s ease-out;
+}

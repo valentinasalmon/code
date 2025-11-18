@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Orbitron, Inter } from 'next/font/google'
 import "./globals.css"
+import { GlobalAudio } from "@/components/global-audio"
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${inter.variable} ${orbitron.variable} font-sans antialiased`}>
+        <GlobalAudio />
         {children}
       </body>
     </html>

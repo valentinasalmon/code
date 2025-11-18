@@ -88,11 +88,14 @@ export function LevelCompleteModal({
           <div className="h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent my-4" />
           
           <div className="text-center">
-            <div className="w-12 h-12 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mx-auto mb-2">
+            <div className="relative w-12 h-12 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mx-auto mb-2">
               <span className="text-yellow-400/80 text-xl">⭐</span>
+              <div className="absolute inset-0 rounded-lg bg-yellow-400/20 blur-xl animate-pulse" />
             </div>
-            <p className="text-xs text-yellow-400/50 font-light uppercase tracking-wider mb-1">Puntuación</p>
-            <p className="text-2xl text-yellow-400/80 font-light font-mono">{score.toLocaleString()}</p>
+            <p className="text-xs text-yellow-400/50 font-light uppercase tracking-wider mb-1">Puntos Ganados</p>
+            <p className="text-3xl text-yellow-400 font-light font-mono animate-pulse">
+              +{score.toLocaleString()}
+            </p>
           </div>
         </div>
 

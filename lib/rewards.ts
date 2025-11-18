@@ -62,7 +62,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: '👑',
     unlocked: false,
     progress: 0,
-    maxProgress: 25
+    maxProgress: 28
   },
   {
     id: 'secret_finder',
@@ -113,8 +113,8 @@ export function checkAchievements(
         unlocked = stats.fragmentsCollected >= 10
         break
       case 'master':
-        progress = Math.min(stats.levelsCompleted, 25)
-        unlocked = stats.levelsCompleted >= 25
+        progress = Math.min(stats.levelsCompleted, 28)
+        unlocked = stats.levelsCompleted >= 28
         break
       case 'secret_finder':
         progress = Math.min(stats.secretLevelsFound, 1)
