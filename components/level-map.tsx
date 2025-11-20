@@ -7,7 +7,7 @@ import { getSurpriseRewards, isSurpriseLevel } from "@/lib/surprise-levels"
 import { RewardsDisplay } from "@/components/rewards-display"
 import { Home, Trophy, Lock, Sparkles, Trash2, X, ChevronDown, ChevronUp } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, startTransition } from "react"
 
 interface LevelMapProps {
   onSelectLevel: (level: number) => void
@@ -246,7 +246,16 @@ export function LevelMap({
         <div className="flex items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => {
+                startTransition(() => {
+                  try {
+                    router.push("/")
+                  } catch (error) {
+                    console.error("Error navigating to /:", error)
+                    window.location.href = "/"
+                  }
+                })
+              }}
               className="w-12 h-12 bg-slate-900/40 hover:bg-slate-800/60 border border-cyan-500/30 rounded-lg flex items-center justify-center transition-all duration-200 hover:border-cyan-400/60 backdrop-blur-sm"
               title="Volver al inicio"
             >

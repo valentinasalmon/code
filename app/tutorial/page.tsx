@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Volume2, VolumeX } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, startTransition } from 'react'
 import { setGlobalAudioMuted, setGlobalAudioVolume } from '@/lib/audio'
 
 export default function TutorialPage() {
@@ -113,7 +113,16 @@ export default function TutorialPage() {
         <div className="flex items-center justify-between gap-4 mb-12">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => {
+                startTransition(() => {
+                  try {
+                    router.push("/")
+                  } catch (error) {
+                    console.error("Error navigating to /:", error)
+                    window.location.href = "/"
+                  }
+                })
+              }}
               className="w-12 h-12 bg-slate-900/40 hover:bg-slate-800/60 border border-cyan-500/30 rounded-lg flex items-center justify-center transition-all duration-200 hover:border-cyan-400/60 backdrop-blur-sm"
               title="Volver al inicio"
             >
@@ -362,7 +371,16 @@ export default function TutorialPage() {
         {/* Play Button */}
         <div className="text-center">
           <button
-            onClick={() => router.push("/play")}
+            onClick={() => {
+              startTransition(() => {
+                try {
+                  router.push("/play")
+                } catch (error) {
+                  console.error("Error navigating to /play:", error)
+                  window.location.href = "/play"
+                }
+              })
+            }}
             className="bg-slate-900/40 hover:bg-slate-800/60 border border-cyan-500/30 hover:border-cyan-400/60 text-cyan-400 font-light text-base px-12 py-4 rounded-lg transition-all duration-200 backdrop-blur-sm tracking-wider hover:scale-105"
           >
             Comenzar a Jugar

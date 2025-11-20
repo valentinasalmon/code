@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Play, BookOpen, Map, Volume2, VolumeX } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, startTransition } from 'react'
 import { setGlobalAudioMuted, setGlobalAudioVolume } from '@/lib/audio'
 
 export default function HomePage() {
@@ -63,7 +63,16 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-scale-in">
           {/* Botón JUGAR */}
           <button
-            onClick={() => router.push("/play")}
+            onClick={() => {
+              startTransition(() => {
+                try {
+                  router.push("/play")
+                } catch (error) {
+                  console.error("Error navigating to /play:", error)
+                  window.location.href = "/play"
+                }
+              })
+            }}
             className="group relative bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border-2 border-cyan-400/50 hover:border-cyan-400 rounded-xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(6,182,212,0.6)] backdrop-blur-sm"
           >
             <div className="flex flex-col items-center gap-4">
@@ -80,7 +89,16 @@ export default function HomePage() {
 
           {/* Botón CÓMO JUGAR */}
           <button
-            onClick={() => router.push("/tutorial")}
+            onClick={() => {
+              startTransition(() => {
+                try {
+                  router.push("/tutorial")
+                } catch (error) {
+                  console.error("Error navigating to /tutorial:", error)
+                  window.location.href = "/tutorial"
+                }
+              })
+            }}
             className="group relative bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 border-2 border-green-400/50 hover:border-green-400 rounded-xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(34,197,94,0.6)] backdrop-blur-sm"
           >
             <div className="flex flex-col items-center gap-4">
@@ -97,7 +115,16 @@ export default function HomePage() {
 
           {/* Botón NIVELES */}
           <button
-            onClick={() => router.push("/play")}
+            onClick={() => {
+              startTransition(() => {
+                try {
+                  router.push("/play")
+                } catch (error) {
+                  console.error("Error navigating to /play:", error)
+                  window.location.href = "/play"
+                }
+              })
+            }}
             className="group relative bg-gradient-to-br from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 border-2 border-purple-400/50 hover:border-purple-400 rounded-xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] backdrop-blur-sm"
           >
             <div className="flex flex-col items-center gap-4">
