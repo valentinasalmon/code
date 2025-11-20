@@ -40,10 +40,11 @@ export default function TutorialPage() {
     }
   }, [volume, mounted])
   const rewardTrail = [
-    { title: "Primeros nodos", detail: "1–3", reward: "Fragmento base ✨" },
-    { title: "Rutas medias", detail: "4–10", reward: "Cofre luminoso 🧿" },
-    { title: "Zonas avanzadas", detail: "11–18", reward: "Llave ancestral 🔓" },
-    { title: "Cúspide Nexus", detail: "19–25", reward: "Corona de datos 🏆" },
+    { title: "Nivel 5", detail: "Tesoro Oculto ⭐", reward: "Medalla del Iniciado 🥉" },
+    { title: "Nivel 10", detail: "Cámara Secreta ⭐", reward: "Dragón Pequeño 🐉" },
+    { title: "Nivel 15", detail: "Sala del Maestro ⭐", reward: "Medalla del Maestro 🥇" },
+    { title: "Nivel 20", detail: "Santuario Perdido ⭐", reward: "Fénix Resurgente 🔥" },
+    { title: "Nivel 25", detail: "Trono Ancestral ⭐", reward: "Leyenda de NEXUS 👑" },
   ]
 
   const controlScheme = [
@@ -200,29 +201,29 @@ export default function TutorialPage() {
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {rewardTrail.map((step) => (
               <div key={step.title} className="bg-slate-950/40 border border-emerald-500/20 rounded-xl p-4">
                 <p className="text-xs uppercase tracking-[0.3em] text-emerald-200/70 mb-2">{step.title}</p>
-                <p className="text-white text-2xl font-light">{step.detail}</p>
-                <p className="text-emerald-100/70 text-sm mt-3">{step.reward}</p>
+                <p className="text-white text-lg font-light mb-2">{step.detail}</p>
+                <p className="text-emerald-100/70 text-sm">{step.reward}</p>
               </div>
             ))}
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-slate-950/40 border border-yellow-500/30 rounded-xl p-4">
+              <p className="text-yellow-200/70 text-xs uppercase tracking-[0.4em] mb-2">Niveles Sorpresa</p>
+              <p className="text-white text-sm leading-relaxed">
+                Los niveles marcados con ⭐ son especiales y otorgan <span className="text-yellow-200 font-medium">recompensas únicas</span> como medallas, mascotas y títulos. Además, estos niveles otorgan <span className="text-yellow-200 font-medium">multiplicadores de puntos</span> (2.5x a 5x) para aumentar tu puntuación.
+              </p>
+            </div>
             <div className="bg-slate-950/40 border border-purple-500/30 rounded-xl p-4">
-              <p className="text-purple-200/70 text-xs uppercase tracking-[0.4em] mb-2">Nodos secretos</p>
+              <p className="text-purple-200/70 text-xs uppercase tracking-[0.4em] mb-2">Nodos Secretos</p>
               <p className="text-white text-sm leading-relaxed">
                 Con 5, 10 y 15 fragmentos desbloqueas <span className="text-purple-200 font-medium">Umbral Resonante (26)</span>,
                 <span className="text-purple-200 font-medium"> Memoria Fractal (27)</span> y
                 <span className="text-purple-200 font-medium"> Horizonte Perdido (28)</span>, cada uno con reglas sorpresa.
-              </p>
-            </div>
-            <div className="bg-slate-950/40 border border-cyan-500/30 rounded-xl p-4">
-              <p className="text-cyan-200/70 text-xs uppercase tracking-[0.4em] mb-2">Factor sorpresa</p>
-              <p className="text-white text-sm leading-relaxed">
-                Orbes de claridad, bloques espectrales y mensajes ocultos aparecerán aleatoriamente cuando resuelvas nodos críticos del mapa.
               </p>
             </div>
           </div>
